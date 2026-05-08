@@ -13,8 +13,10 @@
 #include "gethostbyname.h"
 #include "networks.h"
 #include "safeUtil.h"
+#include "pduLib.h"
+#include "cpe464.h"
 
-#define MAXBUF 80
+#define MAXBUF 1407 // 1400 for the max payload length, 7 bytes for the header length
 
 void processClient(int socketNum);
 int checkArgs(int argc, char *argv[]);
@@ -29,7 +31,10 @@ int main ( int argc, char *argv[]  )
 	portNumber = checkArgs(argc, argv);
 	errorRate = atof(argv[1]);
 
-	printf("Error rate: %f\n", errorRate);
+	// debug
+	// printf("Error rate: %f\n", errorRate);
+
+	sendErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_OFF);
 		
 	socketNum = udpServerSetup(portNumber);
 
@@ -43,7 +48,7 @@ int main ( int argc, char *argv[]  )
 void processClient(int socketNum)
 {
 	int dataLen = 0; 
-	char buffer[MAXBUF + 1];	  
+	uint8_t buffer[MAXBUF];	  
 	struct sockaddr_in6 client;		
 	int clientAddrLen = sizeof(client);	
 	
@@ -54,12 +59,14 @@ void processClient(int socketNum)
 	
 		printf("Received message from client with ");
 		printIPInfo(&client);
-		printf(" Len: %d \'%s\'\n", dataLen, buffer);
+		printf("Len: %d Message Len: %d Message: %s\n", dataLen, dataLen - 7, buffer + 7);
+
+		printPDU(buffer, dataLen);
 
 		// just for fun send back to client number of bytes received
-		sprintf(buffer, "bytes: %d", dataLen);
-		safeSendto(socketNum, buffer, strlen(buffer)+1, 0, (struct sockaddr *) & client, clientAddrLen);
+		// sprintf(buffer, "bytes: %d", dataLen);
 
+		safeSendto(socketNum, buffer, dataLen, 0, (struct sockaddr *) & client, clientAddrLen);
 	}
 }
 

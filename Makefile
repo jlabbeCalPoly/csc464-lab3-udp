@@ -15,10 +15,10 @@ CFLAGS += -D__LIBCPE464_
 all:  rcopy server
 
 rcopy: rcopy.c $(OBJS) 
-	$(CC) $(CFLAGS) -o rcopy rcopy.c $(OBJS) $(LIBS)
+	$(CC) $(CFLAGS) -o rcopy rcopy.c pduLib.c $(OBJS) $(LIBS)
 
 server: server.c $(OBJS) 
-	$(CC) $(CFLAGS) -o server server.c  $(OBJS) $(LIBS)
+	$(CC) $(CFLAGS) -o server server.c pduLib.c $(OBJS) $(LIBS)
 
 %.o: %.c *.h 
 	gcc -c $(CFLAGS) $< -o $@ 

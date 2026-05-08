@@ -18,11 +18,13 @@
 #include "gethostbyname.h"
 #include "networks.h"
 #include "safeUtil.h"
+#include "pduLib.h"
+#include "cpe464.h"
 
-#define MAXBUF 80
+#define MAXBUF 1400
 
 void talkToServer(int socketNum, struct sockaddr_in6 * server);
-int readFromStdin(char * buffer);
+int readFromStdin(uint8_t * buffer);
 void checkArgs(int argc, char * argv[]);
 
 int main (int argc, char *argv[])
@@ -36,7 +38,10 @@ int main (int argc, char *argv[])
 	portNumber = atoi(argv[3]);
 	errorRate = atof(argv[1]);
 
-	printf("Error rate: %f\n", errorRate);
+	// debug
+	// printf("Error rate: %f\n", errorRate);
+
+	sendErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_OFF);
 	
 	socketNum = setupUdpClientToServer(&server, argv[2], portNumber);
 	
@@ -50,31 +55,40 @@ int main (int argc, char *argv[])
 void talkToServer(int socketNum, struct sockaddr_in6 * server)
 {
 	int serverAddrLen = sizeof(struct sockaddr_in6);
-	char * ipString = NULL;
+	// char * ipString = NULL;
+	
+	// A few counters/defaults for this lab
+	uint32_t sequenceNumberCounter = 0;
+	uint8_t defaultFlag = 1;
 	int dataLen = 0; 
-	char buffer[MAXBUF+1];
+	uint8_t buffer[MAXBUF];
+	uint8_t recvBuffer[MAXBUF + 7];
 	
 	buffer[0] = '\0';
 	while (buffer[0] != '.')
 	{
 		dataLen = readFromStdin(buffer);
-
-		printf("Sending: %s with len: %d\n", buffer,dataLen);
-	
-		safeSendto(socketNum, buffer, dataLen, 0, (struct sockaddr *) server, serverAddrLen);
+		// printf("Sending: %s with len: %d\n", buffer,dataLen);
 		
-		safeRecvfrom(socketNum, buffer, MAXBUF, 0, (struct sockaddr *) server, &serverAddrLen);
+		// Include space for the header to be added on
+		uint8_t pduBuffer[7 + dataLen];
+		dataLen = createPDU(pduBuffer, sequenceNumberCounter, defaultFlag, buffer, dataLen);
+		sequenceNumberCounter += 1;
+	
+		safeSendto(socketNum, pduBuffer, dataLen, 0, (struct sockaddr *) server, serverAddrLen);
+		
+		dataLen = safeRecvfrom(socketNum, recvBuffer, MAXBUF + 7, 0, (struct sockaddr *) server, &serverAddrLen);
+		printPDU(recvBuffer, dataLen);
 		
 		// print out bytes received
-		ipString = ipAddressToString(server);
-		printf("Server with ip: %s and port %d said it received %s\n", ipString, ntohs(server->sin6_port), buffer);
-	      
+		// ipString = ipAddressToString(server);
+		// printf("Server with ip: %s and port %d said it received %s\n", ipString, ntohs(server->sin6_port), buffer);
 	}
 }
 
-int readFromStdin(char * buffer)
+int readFromStdin(uint8_t *buffer)
 {
-	char aChar = 0;
+	int aChar = 0;
 	int inputLen = 0;        
 	
 	// Important you don't input more characters than you have space 
